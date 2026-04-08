@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quantum vs Classical · Search Benchmark</title>
+  <meta name="description" content="Interactive benchmark comparing Grover's quantum search algorithm against classical linear search — visualised in real time." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="static/css/style.css" />
+</head>
+<body>
+
+<!-- ░░░ CANVAS BACKGROUND ░░░ -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- ░░░ NAV ░░░ -->
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="nav-icon">⚛</span>
+    <span>QuantumBench</span>
+  </div>
+  <div class="nav-links">
+    <a href="#benchmark">Benchmark</a>
+    <a href="#visualizer">Visualizer</a>
+    <a href="#complexity">Complexity</a>
+  </div>
+</nav>
+
+<!-- ░░░ HERO ░░░ -->
+<section class="hero" id="home">
+  <div class="hero-badge">
+    <span class="badge-dot"></span>
+    Real-time Qiskit Simulation
+  </div>
+  <h1 class="hero-title">
+    <span class="word-quantum">Quantum</span>
+    <span class="word-vs">vs</span>
+    <span class="word-classical">Classical</span>
+  </h1>
+  <p class="hero-sub">
+    Watch <strong>Grover's Algorithm O(√n)</strong> race against classical
+    <strong>Linear Search O(n)</strong> in a live simulation powered by Qiskit.
+  </p>
+  <div class="hero-stats">
+    <div class="stat">
+      <span class="stat-num" id="hero-qubits">2–5</span>
+      <span class="stat-label">Qubits</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <span class="stat-num">1024</span>
+      <span class="stat-label">Shots</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <span class="stat-num">Aer</span>
+      <span class="stat-label">Simulator</span>
+    </div>
+  </div>
+  <a href="#benchmark" class="hero-cta">
+    Start Benchmark
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+  </a>
+</section>
+
+<!-- ░░░ BENCHMARK CONTROL ░░░ -->
+<section class="section" id="benchmark">
+  <div class="section-label">Interactive Benchmark</div>
+  <h2 class="section-title">Configure & Run</h2>
+
+  <div class="control-panel">
+    <div class="control-group">
+      <label class="control-label">
+        Array Size
+        <span class="control-value" id="size-display">10,000</span>
+      </label>
+      <div class="slider-track">
+        <input type="range" id="size-slider" min="100" max="50000" step="100" value="10000" class="slider" />
+        <div class="slider-fill" id="slider-fill"></div>
+      </div>
+      <div class="slider-bounds">
+        <span>100</span><span>50,000</span>
+      </div>
+    </div>
+
+    <div class="control-group toggle-group">
+      <label class="control-label">Multi-Run Mode</label>
+      <label class="toggle">
+        <input type="checkbox" id="multi-toggle" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-hint">Compare across 8 array sizes</span>
+      </label>
+    </div>
+
+    <button id="run-btn" class="run-btn" onclick="runBenchmark()">
+      <span class="run-btn-inner">
+        <svg class="run-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <span id="run-label">Run Benchmark</span>
+      </span>
+      <span class="run-glow"></span>
+    </button>
+  </div>
+</section>
+
+<!-- ░░░ LOADING ░░░ -->
+<div id="loader-section" class="loader-section hidden">
+  <div class="loader-ring">
+    <div class="ring r1"></div>
+    <div class="ring r2"></div>
+    <div class="ring r3"></div>
+    <div class="loader-core">⚛</div>
+  </div>
+  <p class="loader-text" id="loader-text">Initialising quantum circuit…</p>
+  <div class="loader-steps">
+    <div class="lstep" id="ls1"><span class="lstep-dot"></span>Building circuit</div>
+    <div class="lstep" id="ls2"><span class="lstep-dot"></span>Applying Hadamard gates</div>
+    <div class="lstep" id="ls3"><span class="lstep-dot"></span>Running Grover oracle</div>
+    <div class="lstep" id="ls4"><span class="lstep-dot"></span>Measuring qubits</div>
+  </div>
+</div>
+
+<!-- ░░░ RESULTS ░░░ -->
+<section class="section results-section hidden" id="results-section">
+  <div class="section-label">Results</div>
+  <h2 class="section-title">Benchmark Results</h2>
+
+  <div class="result-meta" id="result-meta"></div>
+
+  <!-- Simulator callout -->
+  <div class="sim-callout" id="sim-callout">
+    <div class="sim-callout-icon">🔬</div>
+    <div>
+      <strong>Why is Quantum slower here?</strong>
+      Qiskit Aer is a <em>classical CPU simulating a quantum computer</em> — the simulation overhead is hundreds of milliseconds. A real quantum processor would run the same circuit in nanoseconds. The third card below shows what Grover's would achieve on real hardware.
+    </div>
+  </div>
+
+  <div class="results-grid results-grid-3">
+    <!-- Classical -->
+    <div class="result-card classical-card" id="card-classical">
+      <div class="card-accent"></div>
+      <div class="card-icon">🖥</div>
+      <div class="card-label">Classical Linear Search</div>
+      <div class="card-complexity">O(n)</div>
+      <div class="card-time" id="classical-time">—</div>
+      <div class="card-unit">milliseconds · measured</div>
+      <div class="card-badge" id="classical-badge"></div>
+    </div>
+
+    <!-- Quantum simulator -->
+    <div class="result-card quantum-card" id="card-quantum">
+      <div class="card-accent"></div>
+      <div class="card-icon">⚛</div>
+      <div class="card-label">Grover's — Qiskit Simulator</div>
+      <div class="card-complexity">O(√n) · CPU overhead</div>
+      <div class="card-time" id="quantum-time">—</div>
+      <div class="card-unit">milliseconds · measured</div>
+      <div class="card-badge" id="quantum-badge">🖥 Simulation overhead</div>
+    </div>
+
+    <!-- Theoretical quantum -->
+    <div class="result-card theory-card" id="card-theory">
+      <div class="card-accent"></div>
+      <div class="card-icon">🚀</div>
+      <div class="card-label">Grover's — Real Quantum HW</div>
+      <div class="card-complexity">O(√n) · theoretical</div>
+      <div class="card-time theory-time" id="theory-time">—</div>
+      <div class="card-unit">milliseconds · estimated</div>
+      <div class="card-badge theory-badge" id="theory-badge"></div>
+    </div>
+  </div>
+
+  <div class="speedup-bar-wrap" id="speedup-section">
+    <div class="speedup-label">
+      Theoretical Quantum Speedup on Real Hardware
+      <span id="speedup-value" class="speedup-num">—×</span>
+    </div>
+    <div class="speedup-track">
+      <div class="speedup-fill" id="speedup-fill"></div>
+    </div>
+    <p class="speedup-note" id="speedup-note"></p>
+  </div>
+</section>
+
+<!-- ░░░ VISUALIZER ░░░ -->
+<section class="section" id="visualizer">
+  <div class="section-label">Algorithm Visualizer</div>
+  <h2 class="section-title">See How They Search</h2>
+
+  <div class="viz-tabs">
+    <button class="viz-tab active" onclick="selectVizTab('classical', this)">Classical Search</button>
+    <button class="viz-tab" onclick="selectVizTab('quantum', this)">Quantum Search</button>
+  </div>
+
+  <div class="viz-panel" id="viz-classical">
+    <p class="viz-description">Linear search checks elements one by one until it finds the target. Every orange cell is examined in sequence.</p>
+    <div class="viz-classical-grid" id="classical-grid"></div>
+    <button class="viz-play-btn" onclick="playClassicalViz()">▶ Play Animation</button>
+  </div>
+
+  <div class="viz-panel hidden" id="viz-quantum">
+    <p class="viz-description">Grover's algorithm puts all states into superposition simultaneously. The oracle amplifies the target state — all highlighted at once, then measured.</p>
+    <div class="viz-quantum-grid" id="quantum-grid"></div>
+    <div class="quantum-phase-label" id="q-phase-label">Phase: Superposition</div>
+    <button class="viz-play-btn" onclick="playQuantumViz()">▶ Play Animation</button>
+  </div>
+</section>
+
+<!-- ░░░ CHART ░░░ -->
+<section class="section" id="chart-section">
+  <div class="section-label">Performance Graph</div>
+  <h2 class="section-title">Timing Comparison</h2>
+  <div class="chart-wrap">
+    <canvas id="benchmark-chart"></canvas>
+  </div>
+  <p class="chart-note" id="chart-note">Run a benchmark to populate this chart.</p>
+</section>
+
+<!-- ░░░ COMPLEXITY ░░░ -->
+<section class="section" id="complexity">
+  <div class="section-label">Computer Science</div>
+  <h2 class="section-title">Understanding the Gap</h2>
+
+  <div class="complexity-grid">
+    <div class="complexity-card">
+      <div class="cc-header classical-header">
+        <span class="cc-icon">🖥</span>
+        <span>Linear Search</span>
+      </div>
+      <table class="cc-table">
+        <tr><td>Complexity</td><td class="mono">O(n)</td></tr>
+        <tr><td>Best Case</td><td class="mono">O(1)</td></tr>
+        <tr><td>Worst Case</td><td class="mono">O(n)</td></tr>
+        <tr><td>Space</td><td class="mono">O(1)</td></tr>
+        <tr><td>Requires sorted?</td><td class="mono">No</td></tr>
+      </table>
+      <p class="cc-desc">Iterates through every element. Simple, reliable, but scales linearly with data.</p>
+    </div>
+
+    <div class="complexity-card quantum-complexity-card">
+      <div class="cc-header quantum-header">
+        <span class="cc-icon">⚛</span>
+        <span>Grover's Algorithm</span>
+      </div>
+      <table class="cc-table">
+        <tr><td>Complexity</td><td class="mono">O(√n)</td></tr>
+        <tr><td>Best Case</td><td class="mono">O(√n)</td></tr>
+        <tr><td>Worst Case</td><td class="mono">O(√n)</td></tr>
+        <tr><td>Space</td><td class="mono">O(log n)</td></tr>
+        <tr><td>Requires sorted?</td><td class="mono">No</td></tr>
+      </table>
+      <p class="cc-desc">Leverages superposition and amplitude amplification for a quadratic speedup — provably optimal for unstructured search.</p>
+    </div>
+
+    <div class="complexity-card scale-card">
+      <div class="cc-header scale-header">
+        <span class="cc-icon">📈</span>
+        <span>Scaling at Glance</span>
+      </div>
+      <table class="cc-table">
+        <tr><th>n</th><th>O(n)</th><th>O(√n)</th></tr>
+        <tr><td>1,000</td><td class="mono">1,000</td><td class="mono">32</td></tr>
+        <tr><td>10,000</td><td class="mono">10,000</td><td class="mono">100</td></tr>
+        <tr><td>1M</td><td class="mono">1,000,000</td><td class="mono">1,000</td></tr>
+        <tr><td>1B</td><td class="mono">1,000,000,000</td><td class="mono">31,623</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ░░░ FOOTER ░░░ -->
+<footer class="footer">
+  <p>Built with <span class="heart">♥</span> using <strong>Qiskit</strong> + <strong>Flask</strong> + <strong>Chart.js</strong></p>
+  <p class="footer-sub">Quantum simulation runs on Qiskit Aer — not a real quantum computer.</p>
+</footer>
+
+<script src="static/js/script.js"></script>
+</body>
+</html>
