@@ -281,6 +281,21 @@ Chart.defaults.color = '#94a3c8';
 Chart.defaults.borderColor = 'rgba(99,130,255,0.1)';
 Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
 
+const glowPlugin = {
+  id: 'glowPlugin',
+  beforeDatasetDraw(chart, args, options) {
+    const { ctx } = chart;
+    ctx.save();
+    ctx.shadowColor = chart.data.datasets[args.index].borderColor;
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+  },
+  afterDatasetDraw(chart, args, options) {
+    chart.ctx.restore();
+  }
+};
+
 function createChart(labels, classicalData, quantumData, type = 'bar') {
   if (benchmarkChart) benchmarkChart.destroy();
 
@@ -288,6 +303,7 @@ function createChart(labels, classicalData, quantumData, type = 'bar') {
 
   benchmarkChart = new Chart(ctx, {
     type,
+    plugins: type === 'line' ? [glowPlugin] : [],
     data: {
       labels,
       datasets: [
@@ -516,4 +532,38 @@ document.querySelectorAll('.section').forEach(el => {
 /* ── Multi-toggle label update ──────────────────────── */
 multiToggle.addEventListener('change', () => {
   runLabel.textContent = multiToggle.checked ? 'Run Multi-Benchmark' : 'Run Benchmark';
+});
+
+/* ── 3D Tilt Cards ──────────────────────────────────── */
+if (typeof VanillaTilt !== 'undefined') {
+  VanillaTilt.init(document.querySelectorAll('.result-card'), {
+    max: 10,
+    speed: 400,
+    glare: true,
+    'max-glare': 0.1,
+    scale: 1.02
+  });
+  VanillaTilt.init(document.querySelectorAll('.complexity-card'), {
+    max: 5,
+    speed: 400,
+    scale: 1.01
+  });
+}
+
+/* ── Magnetic Run Button ────────────────────────────── */
+runBtn.addEventListener('mousemove', (e) => {
+  const rect = runBtn.getBoundingClientRect();
+  const x = e.clientX - rect.left - rect.width / 2;
+  const y = e.clientY - rect.top - rect.height / 2;
+  
+  // Apply a subtle translation to the button and a stronger one to the inner content
+  const inner = runBtn.querySelector('.run-btn-inner');
+  runBtn.style.transform = `translate(${x * 0.1}px, ${y * 0.1}px)`;
+  if (inner) inner.style.transform = `translate(${x * 0.2}px, ${y * 0.2}px)`;
+});
+
+runBtn.addEventListener('mouseleave', () => {
+  runBtn.style.transform = `translate(0px, 0px)`;
+  const inner = runBtn.querySelector('.run-btn-inner');
+  if (inner) inner.style.transform = `translate(0px, 0px)`;
 });
